@@ -58,13 +58,17 @@ def predict():
         processing_time = int((time.time() - start_time) * 1000)
 
         prediction_values = predictions.predictions[0]["predictions"]
-        confidence = float(max(prediction_values)) * 100
+        base_confidence = float(max(prediction_values)) * 100
+
+        red_flags = extract_red_flags(job_description)
+        company_score = calculate_company_credibility(job_description)
+        confidence = adjust_confidence_for_company(base_confidence, company_score, red_flags)
 
         result = {
             "isFake": confidence > 50,
             "confidence": int(confidence),
             "riskLevel": determine_risk_level(confidence),
-            "redFlags": extract_red_flags(job_description),
+            "redFlags": red_flags,
             "modelVersion": "v1.0",
             "processingTime": processing_time,
         }
@@ -97,6 +101,49 @@ def determine_risk_level(confidence: float) -> str:
     elif confidence < 70:
         return "medium"
     return "high"
+
+
+def calculate_company_credibility(text: str) -> float:
+    text_lower = text.lower()
+    credibility_score = 100.0
+
+    company_indicators = ["company", "organization", "corporation", "inc.", "llc", "ltd"]
+    has_company = any(indicator in text_lower for indicator in company_indicators)
+    if not has_company:
+        credibility_score -= 25
+
+    contact_indicators = ["contact us", "email", "phone", "website", "www.", "linkedin", "address"]
+    contact_count = sum(1 for indicator in contact_indicators if indicator in text_lower)
+    if contact_count == 0:
+        credibility_score -= 20
+    elif contact_count < 2:
+        credibility_score -= 10
+
+    company_details = ["founded", "employees", "revenue", "location", "headquarters", "about us"]
+    details_count = sum(1 for detail in company_details if detail in text_lower)
+    if details_count == 0:
+        credibility_score -= 15
+    elif details_count < 2:
+        credibility_score -= 8
+
+    if "social media" in text_lower or "facebook" in text_lower or "twitter" in text_lower:
+        credibility_score -= 10
+
+    return max(0, credibility_score)
+
+
+def adjust_confidence_for_company(base_confidence: float, company_score: float, red_flags: list) -> float:
+    adjusted_confidence = base_confidence
+
+    penalty_for_missing_company = (100 - company_score) * 0.35
+    adjusted_confidence += penalty_for_missing_company
+
+    penalty_for_red_flags = len(red_flags) * 8
+    adjusted_confidence += penalty_for_red_flags
+
+    adjusted_confidence = min(99, adjusted_confidence)
+
+    return adjusted_confidence
 
 
 def extract_red_flags(text: str) -> list:
