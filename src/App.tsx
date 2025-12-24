@@ -133,7 +133,7 @@ function App() {
 
         <footer className="mt-16 text-center text-slate-500 text-sm">
           <p>
-            Built with React, TypeScript, and Tailwind CSS | Backend powered by Google Cloud Platform
+            Made With Love in India
           </p>
           <p className="mt-2">
             Team: Byte Brigadier | HackSprint 2024
